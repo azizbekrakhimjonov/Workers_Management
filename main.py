@@ -12,8 +12,10 @@ from datetime import datetime
 import logging
 from geopy.distance import geodesic
 
+
+
 ADMIN_ID = 1486580350
-WORK_LOCATION = (41.32346500754505, 69.28690575802068)  # Update with actual coordinates
+WORK_LOCATION = (41.30278475883332, 69.31477190655004)  # Update with actual coordinates
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
@@ -63,11 +65,11 @@ async def register(message: types.Message):
     conn.close()
 
     if user:
-        await message.answer(f"Siz allaqachon ro'yxatdan o'tgansiz, {user[0]} {user[1]}!")
+        await message.answer(f"Вы уже зарегистрированы, {user[0]} {user[1]}!")
         if is_user_approved(user_id):
             await ask_category(message)  # 3. Category selection
     else:
-        await message.answer("Iltimos, ismingiz va familiyangizni kiriting:")
+        await message.answer("Пожалуйста, введите ваше имя и фамилию:")
         await RegisterState.waiting_for_name.set()
 
 
@@ -78,7 +80,7 @@ async def register_user(message: types.Message, state: FSMContext):
     name_parts = full_name.split(maxsplit=1)
 
     if len(name_parts) < 2:
-        await message.answer("Iltimos, to'liq ism va familiyangizni kiriting. Masalan: Azizbek Rahimjonov.")
+        await message.answer("Пожалуйста, введите ваше имя и фамилию\nНапример: Азизбек Рахимжонов.")
         return
 
     first_name, last_name = name_parts
@@ -92,7 +94,7 @@ async def register_user(message: types.Message, state: FSMContext):
     conn.commit()
     conn.close()
 
-    await message.answer(f"Ro'yxatdan o'tdingiz, {first_name} {last_name}!\n Administratorning ruxsatini kuting...")
+    await message.answer(f"Вы зарегистрировались, {first_name} {last_name}!\nПодождите разрешения администратора...")
     await state.finish()
 
     await ask_admin_approval(user_id, first_name, last_name)
@@ -106,7 +108,7 @@ async def ask_admin_approval(user_id, first_name, last_name):
     deny_button = InlineKeyboardButton("Rad etish", callback_data=f"deny_{user_id}")
     keyboard.add(approve_button, deny_button)
 
-    await bot.send_message(ADMIN_ID, f"Foydalanuvchi {first_name} {last_name} ruxsat so'ramoqda.",
+    await bot.send_message(ADMIN_ID, f"Пользователь {first_name} {last_name} запрашивает разрешение.",
                            reply_markup=keyboard)
 
 
@@ -121,26 +123,26 @@ async def process_admin_approval(callback_query: types.CallbackQuery):
 
     if action == 'approve':
         cursor.execute('UPDATE users SET is_approved = 1 WHERE telegram_id = ?', (user_id,))
-        await bot.send_message(user_id, "Sizga ruxsat berildi. Iltimos botni qayta ishga tushuring:\n /start")
+        await bot.send_message(user_id, "Вам разрешено. Пожалуйста, перезапустите бота:\n /start")
 
     elif action == 'deny':
         cursor.execute('DELETE FROM users WHERE telegram_id = ?', (user_id,))
-        await bot.send_message(user_id, "Sizning ruxsatingiz rad etildi.")
+        await bot.send_message(user_id, "Ваше разрешение отклонено.")
 
     conn.commit()
     conn.close()
 
     await callback_query.answer()
 
+# Imports and initialization code remain unchanged
 
 # 3. Category selection prompt
 async def ask_category(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = ["At Work", "Not at Work", "Reasons", "In the object"]
+    buttons = ["На работе", "Ушел с работы", "Отпроситься", "На объекте"]
     keyboard.add(*buttons)
-    await message.answer("Qaysi holatda ekanligingizni tanlang:", reply_markup=keyboard)
+    await message.answer("Пожалуйста, выберите одну из кнопок.", reply_markup=keyboard)
     await LocationState.waiting_for_category.set()
-
 
 # 4. Handle category selection
 @dp.message_handler(state=LocationState.waiting_for_category, content_types=types.ContentTypes.TEXT)
@@ -148,18 +150,33 @@ async def handle_category(message: types.Message, state: FSMContext):
     category = message.text
     user_id = message.from_user.id
 
-    if category not in ["At Work", "Not at Work", "Reasons", "In the object"]:
-        await message.answer("Iltimos, tugmalardan birini tanlang.")
+    if category not in ["На работе", "Ушел с работы", "Отпроситься", "На объекте"]:
+        await message.answer("Пожалуйста, выберите одну из кнопок.")
+        return
+
+    if category == "Отпроситься":
+        # Show new buttons for "Reasons"
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        buttons = ["Отпроситься", "Болезнь"]
+        keyboard.add(*buttons)
+        await message.answer("Выберите причину:", reply_markup=keyboard)
+        await state.finish()
         return
 
     await state.update_data(selected_category=category)
-
-    # Request location for all categories
-    await message.answer("Iltimos, lokatsiyangizni yuboring:", reply_markup=types.ReplyKeyboardRemove())
+    await message.answer("Пожалуйста, пришлите свое местоположение:", reply_markup=types.ReplyKeyboardRemove())
     await LocationState.waiting_for_location.set()
 
+# 5. Handle location input and verification (remains unchanged)
 
-# 5. Handle location input and verification
+# New handler for "Reasons" sub-buttons
+@dp.message_handler(lambda message: message.text in ["Отпроситься", "Болезнь"])
+async def handle_reason_buttons(message: types.Message):
+    reason = message.text
+    print(f"User selected reason: {reason}")
+    await ask_category(message)
+
+# 6. Handle location input and verification
 @dp.message_handler(state=LocationState.waiting_for_location, content_types=['location'])
 async def handle_location(message: types.Message, state: FSMContext):
     user_location = (message.location.latitude, message.location.longitude)
@@ -168,12 +185,17 @@ async def handle_location(message: types.Message, state: FSMContext):
     category = data.get('selected_category')
 
     # If the category is "At Work" or "Not at Work", verify location
-    if category in ["At Work", "Not at Work"]:
+    if category in ['На работе', 'Ушел с работы']:
         distance = calculate_distance(user_location, WORK_LOCATION)
         if distance < 0.1:  # Within 100 meters
-            await message.answer(f"Siz ishxonadasiz ({category}). Rahmat!")
+            print(6.1)
+            if category == 'На работе':
+                await message.answer(f"Вы на работе")
+            elif category == 'Ушел с работы':
+                await message.answer(f"Вы ушли с работы")
         else:
-            await message.answer(f"Siz ishxonada emassiz ({category})!")
+            print(6.2)
+            await message.answer(f"Вы не на работе!")
 
     # Save location and time for all categories
     save_user_location(user_id, category, user_location)
