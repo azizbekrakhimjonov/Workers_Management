@@ -12,21 +12,20 @@ from datetime import datetime
 import logging
 from geopy.distance import geodesic
 
-
+from register_user import add
 
 ADMIN_ID = 1486580350
-WORK_LOCATION = (41.30278475883332, 69.31477190655004)  # Update with actual coordinates
+WORK_LOCATION = (41.30278475883332, 69.31477190655004)
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 dp.middleware.setup(LoggingMiddleware())
 
-# Initialize database connection
+
 conn = sqlite3.connect('bot_database.db')
 cursor = conn.cursor()
 
-# Create users table if it doesn't exist
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,8 +36,6 @@ CREATE TABLE IF NOT EXISTS users (
 )
 ''')
 conn.commit()
-
-# Close the database connection for now
 conn.close()
 
 
@@ -57,7 +54,6 @@ class LocationState(StatesGroup):
 async def register(message: types.Message):
     user_id = message.from_user.id
 
-    # Check if the user is already registered
     conn = sqlite3.connect('bot_database.db')
     cursor = conn.cursor()
     cursor.execute('SELECT first_name, last_name FROM users WHERE telegram_id = ?', (user_id,))
@@ -86,11 +82,11 @@ async def register_user(message: types.Message, state: FSMContext):
     first_name, last_name = name_parts
     user_id = message.from_user.id
 
-    # Insert the user information into the database
     conn = sqlite3.connect('bot_database.db')
     cursor = conn.cursor()
     cursor.execute('INSERT INTO users (telegram_id, first_name, last_name) VALUES (?, ?, ?)',
                    (user_id, first_name, last_name))
+    add(user_id, full_name)
     conn.commit()
     conn.close()
 
@@ -102,7 +98,6 @@ async def register_user(message: types.Message, state: FSMContext):
 
 # 2. Admin approval request
 async def ask_admin_approval(user_id, first_name, last_name):
-    # Inline keyboard for admin approval
     keyboard = InlineKeyboardMarkup()
     approve_button = InlineKeyboardButton("Ruxsat berish", callback_data=f"approve_{user_id}")
     deny_button = InlineKeyboardButton("Rad etish", callback_data=f"deny_{user_id}")
@@ -134,8 +129,6 @@ async def process_admin_approval(callback_query: types.CallbackQuery):
 
     await callback_query.answer()
 
-# Imports and initialization code remain unchanged
-
 # 3. Category selection prompt
 async def ask_category(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -155,7 +148,6 @@ async def handle_category(message: types.Message, state: FSMContext):
         return
 
     if category == "Отпроситься":
-        # Show new buttons for "Reasons"
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         buttons = ["Отпроситься", "Болезнь"]
         keyboard.add(*buttons)
@@ -169,7 +161,6 @@ async def handle_category(message: types.Message, state: FSMContext):
 
 # 5. Handle location input and verification (remains unchanged)
 
-# New handler for "Reasons" sub-buttons
 @dp.message_handler(lambda message: message.text in ["Отпроситься", "Болезнь"])
 async def handle_reason_buttons(message: types.Message):
     reason = message.text
@@ -197,19 +188,17 @@ async def handle_location(message: types.Message, state: FSMContext):
             print(6.2)
             await message.answer(f"Вы не на работе!")
 
-    # Save location and time for all categories
     save_user_location(user_id, category, user_location)
 
     await state.finish()
-    await ask_category(message)  # Prompt category selection again
+    await ask_category(message)
 
 
-# Utility function to calculate distance between two locations
 def calculate_distance(loc1, loc2):
     return geodesic(loc1, loc2).km
 
 
-# Utility function to save user location and timestamp
+
 def save_user_location(user_id, category, location):
     conn = sqlite3.connect('bot_database.db')
     cursor = conn.cursor()
@@ -231,7 +220,7 @@ def is_user_approved(user_id):
     return is_approved and is_approved[0] == 1
 
 
-# Create user_locations table if it doesn't exist
+
 conn = sqlite3.connect('bot_database.db')
 cursor = conn.cursor()
 cursor.execute('''
@@ -247,7 +236,7 @@ CREATE TABLE IF NOT EXISTS user_locations (
 conn.commit()
 conn.close()
 
-# Scheduler to prompt category selection at specific times
+
 scheduler = AsyncIOScheduler()
 scheduler.start()
 
