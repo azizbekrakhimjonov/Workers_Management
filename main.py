@@ -6,13 +6,13 @@ from aiogram.utils import executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime
 import logging
 from geopy.distance import geodesic
 
-from register_user import add
+from append import *
 
 ADMIN_ID = 1486580350
 WORK_LOCATION = (41.30278475883332, 69.31477190655004)
@@ -21,7 +21,6 @@ bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 dp.middleware.setup(LoggingMiddleware())
-
 
 conn = sqlite3.connect('bot_database.db')
 cursor = conn.cursor()
@@ -60,13 +59,20 @@ async def register(message: types.Message):
     user = cursor.fetchone()
     conn.close()
 
-    if user:
-        await message.answer(f"Вы уже зарегистрированы, {user[0]} {user[1]}!")
-        if is_user_approved(user_id):
-            await ask_category(message)  # 3. Category selection
+    if user_id != ADMIN_ID:
+        if user:
+            await message.answer(f"Вы уже зарегистрированы, {user[0]} {user[1]}!")
+            if is_user_approved(user_id):
+                await ask_category(message)  # 3. Category selection
+        else:
+            await message.answer("Пожалуйста, введите ваше имя и фамилию:")
+            await RegisterState.waiting_for_name.set()
+            if user:
+                await message.answer(f"Вы уже зарегистрированы, {user[0]} {user[1]}!")
+                if is_user_approved(user_id):
+                    await ask_category(message)  # 3. Category selection
     else:
-        await message.answer("Пожалуйста, введите ваше имя и фамилию:")
-        await RegisterState.waiting_for_name.set()
+        await message.answer("Вы в настоящее время являетесь администратором!", reply_markup=ReplyKeyboardRemove())
 
 
 # 1.1 User registration handler
@@ -86,7 +92,7 @@ async def register_user(message: types.Message, state: FSMContext):
     cursor = conn.cursor()
     cursor.execute('INSERT INTO users (telegram_id, first_name, last_name) VALUES (?, ?, ?)',
                    (user_id, first_name, last_name))
-    add(user_id, full_name)
+    register_gs(user_id, full_name)
     conn.commit()
     conn.close()
 
@@ -105,7 +111,6 @@ async def ask_admin_approval(user_id, first_name, last_name):
 
     await bot.send_message(ADMIN_ID, f"Пользователь {first_name} {last_name} запрашивает разрешение.",
                            reply_markup=keyboard)
-
 
 # 2.1 Handle admin approval or denial
 @dp.callback_query_handler(lambda c: c.data.startswith('approve_') or c.data.startswith('deny_'))
@@ -129,6 +134,7 @@ async def process_admin_approval(callback_query: types.CallbackQuery):
 
     await callback_query.answer()
 
+
 # 3. Category selection prompt
 async def ask_category(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -137,35 +143,57 @@ async def ask_category(message: types.Message):
     await message.answer("Пожалуйста, выберите одну из кнопок.", reply_markup=keyboard)
     await LocationState.waiting_for_category.set()
 
+
 # 4. Handle category selection
 @dp.message_handler(state=LocationState.waiting_for_category, content_types=types.ContentTypes.TEXT)
 async def handle_category(message: types.Message, state: FSMContext):
     category = message.text
     user_id = message.from_user.id
 
+    conn = sqlite3.connect('bot_database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT first_name, last_name FROM users WHERE telegram_id = ?', (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+
     if category not in ["На работе", "Ушел с работы", "Отпроситься", "На объекте"]:
         await message.answer("Пожалуйста, выберите одну из кнопок.")
+        print('На объекте')
         return
 
     if category == "Отпроситься":
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        buttons = ["Отпроситься", "Болезнь"]
+        buttons = ["Отпрoситься", "Болезнь"]
         keyboard.add(*buttons)
         await message.answer("Выберите причину:", reply_markup=keyboard)
         await state.finish()
+
         return
 
     await state.update_data(selected_category=category)
     await message.answer("Пожалуйста, пришлите свое местоположение:", reply_markup=types.ReplyKeyboardRemove())
     await LocationState.waiting_for_location.set()
 
+
 # 5. Handle location input and verification (remains unchanged)
 
-@dp.message_handler(lambda message: message.text in ["Отпроситься", "Болезнь"])
+@dp.message_handler(lambda message: message.text in ["Отпрoситься", "Болезнь"])
 async def handle_reason_buttons(message: types.Message):
     reason = message.text
     print(f"User selected reason: {reason}")
+
+    user_id = message.from_user.id
+
+    conn = sqlite3.connect('bot_database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT first_name, last_name FROM users WHERE telegram_id = ?', (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+
+    # def add_gs(id, fullname, become, reason, inobject, location):
+    add_gs(user_id, f"{user[0]} {user[1]}", datetime.now().strftime("%H:%M:%S"), reason, "*", "*", 0)
     await ask_category(message)
+
 
 # 6. Handle location input and verification
 @dp.message_handler(state=LocationState.waiting_for_location, content_types=['location'])
@@ -174,19 +202,33 @@ async def handle_location(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     data = await state.get_data()
     category = data.get('selected_category')
+    user_id = message.from_user.id
 
-    # If the category is "At Work" or "Not at Work", verify location
+    conn = sqlite3.connect('bot_database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT first_name, last_name FROM users WHERE telegram_id = ?', (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+
     if category in ['На работе', 'Ушел с работы']:
         distance = calculate_distance(user_location, WORK_LOCATION)
         if distance < 0.1:  # Within 100 meters
             print(6.1)
+            date = datetime.now().strftime("%H:%M:%S")
             if category == 'На работе':
                 await message.answer(f"Вы на работе")
+                # add_gs(user_id, f"{user[0]} {user[1]}", datetime.now().strftime("%H:%M:%S"), "*", "*", "На работе", "=C:C-workers!D:D")
+                # add_gs(user_id, f"{user[0]} {user[1]}", datetime.now().strftime("%H:%M:%S"), "*", "*", "На работе", "=VLOOKUP(A2; workers!A:D; 4; FALSE)")
+                add_gs(user_id, f"{user[0]} {user[1]}", date, "*", "*", "На работе", 0)
+
             elif category == 'Ушел с работы':
                 await message.answer(f"Вы ушли с работы")
         else:
             print(6.2)
             await message.answer(f"Вы не на работе!")
+            add_gs(user_id, f"{user[0]} {user[1]}", datetime.now().strftime("%H:%M:%S"), "*", "*", "Не На работе", 0)
+    elif category in ['На объекте']:
+        add_gs(user_id, f"{user[0]} {user[1]}", datetime.now().strftime("%H:%M:%S"), "*", "На объекте", f"{user_location}", 0)
 
     save_user_location(user_id, category, user_location)
 
@@ -196,7 +238,6 @@ async def handle_location(message: types.Message, state: FSMContext):
 
 def calculate_distance(loc1, loc2):
     return geodesic(loc1, loc2).km
-
 
 
 def save_user_location(user_id, category, location):
@@ -220,7 +261,6 @@ def is_user_approved(user_id):
     return is_approved and is_approved[0] == 1
 
 
-
 conn = sqlite3.connect('bot_database.db')
 cursor = conn.cursor()
 cursor.execute('''
@@ -235,7 +275,6 @@ CREATE TABLE IF NOT EXISTS user_locations (
 ''')
 conn.commit()
 conn.close()
-
 
 scheduler = AsyncIOScheduler()
 scheduler.start()
