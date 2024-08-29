@@ -148,14 +148,6 @@ async def ask_category(message: types.Message):
 @dp.message_handler(state=LocationState.waiting_for_category, content_types=types.ContentTypes.TEXT)
 async def handle_category(message: types.Message, state: FSMContext):
     category = message.text
-    user_id = message.from_user.id
-
-    conn = sqlite3.connect('bot_database.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT first_name, last_name FROM users WHERE telegram_id = ?', (user_id,))
-    user = cursor.fetchone()
-    conn.close()
-
     if category not in ["На работе", "Ушел с работы", "Отпроситься", "На объекте"]:
         await message.answer("Пожалуйста, выберите одну из кнопок.")
         print('На объекте')
@@ -181,16 +173,8 @@ async def handle_category(message: types.Message, state: FSMContext):
 async def handle_reason_buttons(message: types.Message):
     reason = message.text
     print(f"User selected reason: {reason}")
-
     user_id = message.from_user.id
-
-    conn = sqlite3.connect('bot_database.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT first_name, last_name FROM users WHERE telegram_id = ?', (user_id,))
-    user = cursor.fetchone()
-    conn.close()
-
-    # def add_gs(id, fullname, become, reason, inobject, location):
+    user = get_name(user_id)
     add_gs(user_id, f"{user[0]} {user[1]}", datetime.now().strftime("%H:%M:%S"), reason, "*", "*", 0)
     await ask_category(message)
 
@@ -204,22 +188,25 @@ async def handle_location(message: types.Message, state: FSMContext):
     category = data.get('selected_category')
     user_id = message.from_user.id
 
-    conn = sqlite3.connect('bot_database.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT first_name, last_name FROM users WHERE telegram_id = ?', (user_id,))
-    user = cursor.fetchone()
-    conn.close()
+    user = get_name(user_id)
 
     if category in ['На работе', 'Ушел с работы']:
         distance = calculate_distance(user_location, WORK_LOCATION)
         if distance < 0.1:  # Within 100 meters
             print(6.1)
-            date = datetime.now().strftime("%H:%M:%S")
+            date = datetime.now().strftime("%H:%M")
             if category == 'На работе':
                 await message.answer(f"Вы на работе")
-                # add_gs(user_id, f"{user[0]} {user[1]}", datetime.now().strftime("%H:%M:%S"), "*", "*", "На работе", "=C:C-workers!D:D")
-                # add_gs(user_id, f"{user[0]} {user[1]}", datetime.now().strftime("%H:%M:%S"), "*", "*", "На работе", "=VLOOKUP(A2; workers!A:D; 4; FALSE)")
-                add_gs(user_id, f"{user[0]} {user[1]}", date, "*", "*", "На работе", 0)
+                wt = working_time(user_id)
+
+                if wt is not None:
+                    fmt = '%H:%M'
+                    tm1 = datetime.strptime(date, fmt)
+                    tm2 = datetime.strptime(wt, fmt)
+                    df_time = tm1 - tm2
+                    add_gs(user_id, f"{user[0]} {user[1]}", date, "*", "*", "На работе", f"{df_time}")
+                else:
+                    add_gs(user_id, f"{user[0]} {user[1]}", date, "*", "*", "На работе", 0)
 
             elif category == 'Ушел с работы':
                 await message.answer(f"Вы ушли с работы")
@@ -239,7 +226,14 @@ async def handle_location(message: types.Message, state: FSMContext):
 def calculate_distance(loc1, loc2):
     return geodesic(loc1, loc2).km
 
-
+def get_name(user_id):
+    conn = sqlite3.connect('bot_database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT first_name, last_name FROM users WHERE telegram_id = ?', (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+    print('fetch:', user[0], user[1])
+    return user
 def save_user_location(user_id, category, location):
     conn = sqlite3.connect('bot_database.db')
     cursor = conn.cursor()
