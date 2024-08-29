@@ -1,3 +1,4 @@
+import pytz
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from datetime import datetime
@@ -35,12 +36,14 @@ def add_gs(id, fullname, become, reason, inobject, location, belose):
 
 
 def register_gs(id, fullname):
+    timezone = pytz.timezone('Asia/Tashkent')
+    current_time = datetime.now(timezone)
+    date = current_time.strftime("%d-%m-%Y")
     resource = {
         "values": [
-            [id, datetime.now().strftime("%d-%m-%Y"), fullname],
+            [id, date, fullname],
         ]
     }
-
     request = service.spreadsheets().values().append(spreadsheetId=SAMPLE_SPREADSHEET_ID,
                                                      range="workers!A2", valueInputOption="USER_ENTERED",
                                                      body=resource)

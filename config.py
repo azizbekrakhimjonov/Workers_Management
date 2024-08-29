@@ -25,7 +25,7 @@ def setup_database():
             category TEXT,
             latitude REAL,
             longitude REAL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            timestamp DATETIME,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     ''')

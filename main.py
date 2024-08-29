@@ -11,7 +11,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime
 import logging
 from geopy.distance import geodesic
-
+import pytz
 from append import *
 
 # ADMIN_ID = 1486580350 # Azizbek Rahimjonov
@@ -106,8 +106,8 @@ async def register_user(message: types.Message, state: FSMContext):
 # 2. Admin approval request
 async def ask_admin_approval(user_id, first_name, last_name):
     keyboard = InlineKeyboardMarkup()
-    approve_button = InlineKeyboardButton("Ruxsat berish", callback_data=f"approve_{user_id}")
-    deny_button = InlineKeyboardButton("Rad etish", callback_data=f"deny_{user_id}")
+    approve_button = InlineKeyboardButton("Дать разрешение ✅", callback_data=f"approve_{user_id}")
+    deny_button = InlineKeyboardButton("Отказ ❌", callback_data=f"deny_{user_id}")
     keyboard.add(approve_button, deny_button)
 
     await bot.send_message(ADMIN_ID, f"Пользователь {first_name} {last_name} запрашивает разрешение.",
@@ -124,11 +124,14 @@ async def process_admin_approval(callback_query: types.CallbackQuery):
 
     if action == 'approve':
         cursor.execute('UPDATE users SET is_approved = 1 WHERE telegram_id = ?', (user_id,))
-        await bot.send_message(user_id, "Вам разрешено. Пожалуйста, перезапустите бота:\n /start")
+        await bot.send_message(user_id, "Вам разрешено ✅. \nПожалуйста, перезапустите бота:\n /start")
+        await bot.send_message(ADMIN_ID, f"Вы дали разрешение ✅")
 
     elif action == 'deny':
         cursor.execute('DELETE FROM users WHERE telegram_id = ?', (user_id,))
         await bot.send_message(user_id, "Ваше разрешение отклонено.")
+        await bot.send_message(ADMIN_ID, f"Вы не дали разрешения ❌")
+
 
     conn.commit()
     conn.close()
@@ -172,11 +175,15 @@ async def handle_category(message: types.Message, state: FSMContext):
 
 @dp.message_handler(lambda message: message.text in ["Отпрoситься", "Болезнь"])
 async def handle_reason_buttons(message: types.Message):
+    timezone = pytz.timezone('Asia/Tashkent')
+
+    current_time = datetime.now(timezone)
+
     reason = message.text
     print(f"User selected reason: {reason}")
     user_id = message.from_user.id
     user = get_name(user_id)
-    add_gs(user_id, f"{user[0]} {user[1]}", datetime.now().strftime("%H:%M:%S"), reason, "*", "*", 0)
+    add_gs(user_id, f"{user[0]} {user[1]}", current_time.strftime('%H:%M'), reason, "*", "*", 0)
     await ask_category(message)
 
 
@@ -188,22 +195,23 @@ async def handle_location(message: types.Message, state: FSMContext):
     data = await state.get_data()
     category = data.get('selected_category')
     user_id = message.from_user.id
-
+    timezone = pytz.timezone('Asia/Tashkent')
+    current_time = datetime.now(timezone)
     user = get_name(user_id)
+    date = current_time.strftime('%H:%M')
 
     if category in ['На работе', 'Ушел с работы']:
         distance = calculate_distance(user_location, WORK_LOCATION)
         if distance < 0.1:  # Within 100 meters
             print(6.1)
-            date = datetime.now().strftime("%H:%M")
             if category == 'На работе':
                 await message.answer(f"Вы на работе")
                 wt = working_time(user_id)
 
                 if wt is not None:
                     fmt = '%H:%M'
-                    tm1 = datetime.strptime(date, fmt)
-                    tm2 = datetime.strptime(wt, fmt)
+                    tm1 = timezone.localize(datetime.strptime(date, fmt))
+                    tm2 = timezone.localize(datetime.strptime(wt, fmt))
                     df_time = tm1 - tm2
                     add_gs(user_id, f"{user[0]} {user[1]}", date, "*", "*", "На работе", f"{df_time}")
                 else:
@@ -214,9 +222,9 @@ async def handle_location(message: types.Message, state: FSMContext):
         else:
             print(6.2)
             await message.answer(f"Вы не на работе!")
-            add_gs(user_id, f"{user[0]} {user[1]}", datetime.now().strftime("%H:%M:%S"), "*", "*", "Не На работе", 0)
+            add_gs(user_id, f"{user[0]} {user[1]}", date, "*", "*", "Не На работе", 0)
     elif category in ['На объекте']:
-        add_gs(user_id, f"{user[0]} {user[1]}", datetime.now().strftime("%H:%M:%S"), "*", "На объекте", f"{user_location}", 0)
+        add_gs(user_id, f"{user[0]} {user[1]}", date, "*", "На объекте", f"{user_location}", 0)
 
     save_user_location(user_id, category, user_location)
 
@@ -236,12 +244,14 @@ def get_name(user_id):
     print('fetch:', user[0], user[1])
     return user
 def save_user_location(user_id, category, location):
+    timezone = pytz.timezone('Asia/Tashkent')
+    current_time = datetime.now(timezone).strftime('%d-%m-%y %H:%M:%S')
     conn = sqlite3.connect('bot_database.db')
     cursor = conn.cursor()
     cursor.execute('''
     INSERT INTO user_locations (telegram_id, category, latitude, longitude, timestamp)
     VALUES (?, ?, ?, ?, ?)
-    ''', (user_id, category, location[0], location[1], datetime.now()))
+    ''', (user_id, category, location[0], location[1], current_time))
     conn.commit()
     conn.close()
 
