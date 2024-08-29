@@ -8,14 +8,12 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from datetime import datetime
 import logging
 from geopy.distance import geodesic
-import pytz
 from append import *
 
-# ADMIN_ID = 1486580350 # Azizbek Rahimjonov
-ADMIN_ID = 456060838
+ADMIN_ID = 1486580350  # Azizbek Rahimjonov
+# ADMIN_ID = 456060838
 WORK_LOCATION = (41.30278475883332, 69.31477190655004)
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
@@ -93,7 +91,7 @@ async def register_user(message: types.Message, state: FSMContext):
     cursor = conn.cursor()
     cursor.execute('INSERT INTO users (telegram_id, first_name, last_name) VALUES (?, ?, ?)',
                    (user_id, first_name, last_name))
-    register_gs(user_id, full_name)
+
     conn.commit()
     conn.close()
 
@@ -126,6 +124,8 @@ async def process_admin_approval(callback_query: types.CallbackQuery):
         cursor.execute('UPDATE users SET is_approved = 1 WHERE telegram_id = ?', (user_id,))
         await bot.send_message(user_id, "Вам разрешено ✅. \nПожалуйста, перезапустите бота:\n /start")
         await bot.send_message(ADMIN_ID, f"Вы дали разрешение ✅")
+        user = get_name(user_id)
+        register_gs(user_id, f"{user[0]} {user[1]}")
 
     elif action == 'deny':
         cursor.execute('DELETE FROM users WHERE telegram_id = ?', (user_id,))

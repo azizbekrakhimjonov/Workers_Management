@@ -17,7 +17,6 @@ def setup_database():
         )
     ''')
 
-    # Create locations table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS locations (
             id INTEGER PRIMARY KEY,
