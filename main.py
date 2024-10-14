@@ -6,7 +6,8 @@ from aiogram.utils import executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, ReplyKeyboardMarkup, \
+    KeyboardButton
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import logging
 from geopy.distance import geodesic
@@ -24,6 +25,13 @@ dp.middleware.setup(LoggingMiddleware())
 conn = sqlite3.connect('bot_database.db')
 cursor = conn.cursor()
 
+
+def location_keyboard():
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+    location_button = KeyboardButton(text="📍 Отправить местоположение", request_location=True)
+    keyboard.add(location_button)
+    return keyboard
+
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,22 +44,18 @@ CREATE TABLE IF NOT EXISTS users (
 conn.commit()
 conn.close()
 
-
 # States for FSM
 class RegisterState(StatesGroup):
     waiting_for_name = State()
-
 
 class LocationState(StatesGroup):
     waiting_for_category = State()
     waiting_for_location = State()
 
-
 # 1. Start command handler
 @dp.message_handler(commands=['start'])
 async def register(message: types.Message):
     user_id = message.from_user.id
-
     conn = sqlite3.connect('bot_database.db')
     cursor = conn.cursor()
     cursor.execute('SELECT first_name, last_name FROM users WHERE telegram_id = ?', (user_id,))
@@ -72,7 +76,6 @@ async def register(message: types.Message):
                     await ask_category(message)  # 3. Category selection
     else:
         await message.answer("Вы в настоящее время являетесь администратором!", reply_markup=ReplyKeyboardRemove())
-
 
 # 1.1 User registration handler
 @dp.message_handler(state=RegisterState.waiting_for_name, content_types=types.ContentTypes.TEXT)
@@ -97,7 +100,6 @@ async def register_user(message: types.Message, state: FSMContext):
 
     await message.answer(f"Вы зарегистрировались, {first_name} {last_name}!\nПодождите разрешения администратора...")
     await state.finish()
-
     await ask_admin_approval(user_id, first_name, last_name)
 
 
@@ -167,7 +169,7 @@ async def handle_category(message: types.Message, state: FSMContext):
         return
 
     await state.update_data(selected_category=category)
-    await message.answer("Пожалуйста, пришлите свое местоположение:", reply_markup=types.ReplyKeyboardRemove())
+    await message.answer("Пожалуйста, пришлите свое местоположение:", reply_markup=location_keyboard())
     await LocationState.waiting_for_location.set()
 
 
@@ -286,3 +288,7 @@ scheduler.start()
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
+
+
+
+

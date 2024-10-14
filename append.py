@@ -11,7 +11,7 @@ creds = None
 creds = service_account.Credentials.from_service_account_file(
     SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 
-SAMPLE_SPREADSHEET_ID = '1eE6fNUw2DRCEivBEGs-EfAF5lbHDJVzQhLODGZWZc6U'
+SAMPLE_SPREADSHEET_ID = '1u0tXdHh-umD92RPgaM-bOz8tVgjDoeJ-wM5vn8Zfk3E'
 
 service = build('sheets', 'v4', credentials=creds)
 
@@ -29,7 +29,7 @@ def add_gs(id, fullname, become, reason, inobject, location, belose):
     }
 
     request = service.spreadsheets().values().append(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                                     range="lose!A2", valueInputOption="USER_ENTERED",
+                                                     range="Grace!A2", valueInputOption="USER_ENTERED",
                                                      body=resource)
     response = request.execute()
     print('Successfuly')
@@ -45,7 +45,7 @@ def register_gs(id, fullname):
         ]
     }
     request = service.spreadsheets().values().append(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                                     range="workers!A2", valueInputOption="USER_ENTERED",
+                                                     range="Houz!A2", valueInputOption="USER_ENTERED",
                                                      body=resource)
     response = request.execute()
     print('Successfuly')
@@ -53,7 +53,7 @@ def register_gs(id, fullname):
 
 def working_time(user_id):
     result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                range="workers!A1:D25").execute()
+                                range="Houz!A1:D25").execute()
     values = result.get('values', [])
     for row in values[1:]:
         if row[0] == str(user_id):
