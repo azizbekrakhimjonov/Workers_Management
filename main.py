@@ -13,8 +13,8 @@ import logging
 from geopy.distance import geodesic
 from append import *
 
-ADMIN_ID = 1486580350  # Azizbek Rahimjonov
-# ADMIN_ID = 456060838
+# ADMIN_ID = 1486580350  # Azizbek Rahimjonov
+ADMIN_ID = 456060838
 WORK_LOCATION = (41.30278475883332, 69.31477190655004)
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
