@@ -4,12 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="74685e7f-d02c-4102-a7dc-a67d8ca470ac" name="Changes" comment="idea">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/append.py" beforeDir="false" afterPath="$PROJECT_DIR$/append.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/keys.json" beforeDir="false" afterPath="$PROJECT_DIR$/keys.json" afterDir="false" />
+    <list default="true" id="74685e7f-d02c-4102-a7dc-a67d8ca470ac" name="Changes" comment="update sheets">
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -66,6 +61,15 @@
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
     </key>
+  </component>
+  <component name="RunDashboard">
+    <option name="configurationTypes">
+      <set>
+        <option value="CompoundRunConfigurationType" />
+        <option value="ShConfigurationType" />
+        <option value="docs" />
+      </set>
+    </option>
   </component>
   <component name="RunManager" selected="Python.config">
     <configuration name="append" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
@@ -276,7 +280,15 @@
       <option name="project" value="LOCAL" />
       <updated>1724971700727</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="update sheets">
+      <option name="closed" value="true" />
+      <created>1728914558178</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1728914558178</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -302,6 +314,7 @@
     <MESSAGE value="update timezona" />
     <MESSAGE value="db" />
     <MESSAGE value="idea" />
-    <option name="LAST_COMMIT_MESSAGE" value="idea" />
+    <MESSAGE value="update sheets" />
+    <option name="LAST_COMMIT_MESSAGE" value="update sheets" />
   </component>
 </project>
