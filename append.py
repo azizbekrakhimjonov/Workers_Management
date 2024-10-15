@@ -20,16 +20,16 @@ sheet = service.spreadsheets()
 
 # column =  ["ИД", "Имя и Фамилию", "На работе", "Ушел с работы", 'местоположение', 'Отпроситься', 'На объекте'],
 
-def add_gs(id, fullname, become, reason, inobject, location, belose):
+def add_gs(id, fullname, become, go,reason, inobject, location, belose):
     resource = {
         # "majorDimension": "ROWS",
         "values": [
-            [id, fullname, become, reason, inobject, location, belose],
+            [id, fullname, become, go, reason, inobject, location, belose],
         ]
     }
 
     request = service.spreadsheets().values().append(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                                     range="Grace!A2", valueInputOption="USER_ENTERED",
+                                                     range="Details!A2", valueInputOption="USER_ENTERED",
                                                      body=resource)
     response = request.execute()
     print('Successfuly')
@@ -45,7 +45,7 @@ def register_gs(id, fullname):
         ]
     }
     request = service.spreadsheets().values().append(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                                     range="Houz!A2", valueInputOption="USER_ENTERED",
+                                                     range="Workers!A2", valueInputOption="USER_ENTERED",
                                                      body=resource)
     response = request.execute()
     print('Successfuly')
@@ -53,7 +53,7 @@ def register_gs(id, fullname):
 
 def working_time(user_id):
     result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                range="Houz!A1:D25").execute()
+                                range="Workers!A1:D25").execute()
     values = result.get('values', [])
     for row in values[1:]:
         if row[0] == str(user_id):
@@ -62,5 +62,3 @@ def working_time(user_id):
             else:
                 return None
     return None
-
-
