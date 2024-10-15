@@ -13,8 +13,8 @@ import logging
 from geopy.distance import geodesic
 from append import *
 
-# ADMIN_ID = 1486580350  # Azizbek Rahimjonov
-ADMIN_ID = 456060838
+ADMIN_ID = 1486580350  # Azizbek Rahimjonov
+# ADMIN_ID = 456060838
 WORK_LOCATION = (41.30278475883332, 69.31477190655004)
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
@@ -185,7 +185,8 @@ async def handle_reason_buttons(message: types.Message):
     print(f"User selected reason: {reason}")
     user_id = message.from_user.id
     user = get_name(user_id)
-    add_gs(user_id, f"{user[0]} {user[1]}", current_time.strftime('%H:%M'), reason, "*", "*", 0)
+    # id, fullname, become, go, reason, inobject, location, belose
+    add_gs(user_id, f"{user[0]} {user[1]}", current_time.strftime('%d-%m-%Y %H:%M'), "*",  reason, "*", "*", 0)
     await ask_category(message)
 
 
@@ -201,6 +202,7 @@ async def handle_location(message: types.Message, state: FSMContext):
     current_time = datetime.now(timezone)
     user = get_name(user_id)
     date = current_time.strftime('%H:%M')
+    fdate = current_time.strftime('%d-%m-%Y %H:%M')
 
     if category in ['На работе', 'Ушел с работы']:
         distance = calculate_distance(user_location, WORK_LOCATION)
@@ -215,18 +217,21 @@ async def handle_location(message: types.Message, state: FSMContext):
                     tm1 = timezone.localize(datetime.strptime(date, fmt))
                     tm2 = timezone.localize(datetime.strptime(wt, fmt))
                     df_time = tm1 - tm2
-                    add_gs(user_id, f"{user[0]} {user[1]}", date, "*", "*", "На работе", f"{df_time}")
+                    # id, fullname, become, go, reason, inobject, location, belose
+                    add_gs(user_id, f"{user[0]} {user[1]}", fdate, '*', "*", "*", "На работе", f"{df_time}")
                 else:
-                    add_gs(user_id, f"{user[0]} {user[1]}", date, "*", "*", "На работе", 0)
+                    add_gs(user_id, f"{user[0]} {user[1]}", fdate, '*', "*", "*", "На работе", 0)
 
             elif category == 'Ушел с работы':
                 await message.answer(f"Вы ушли с работы")
+                add_gs(user_id, f"{user[0]} {user[1]}", "*",  fdate, "*", "*", "На работе", 0)
+
         else:
             print(6.2)
             await message.answer(f"Вы не на работе!")
-            add_gs(user_id, f"{user[0]} {user[1]}", date, "*", "*", "Не На работе", 0)
+            add_gs(user_id, f"{user[0]} {user[1]}", fdate, "*","*", "*", "Не На работе", 0)
     elif category in ['На объекте']:
-        add_gs(user_id, f"{user[0]} {user[1]}", date, "*", "На объекте", f"{user_location}", 0)
+        add_gs(user_id, f"{user[0]} {user[1]}", fdate, "*", "*", "На объекте", f"{user_location}", 0)
 
     save_user_location(user_id, category, user_location)
 
